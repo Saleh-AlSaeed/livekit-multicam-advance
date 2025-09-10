@@ -18,10 +18,15 @@ app.use(morgan('dev'));
 app.use(cors());
 
 // ---------- ENV ----------
-const LIVEKIT_URL = process.env.'wss://multicam-national-day-htyhphzo.livekit.cloud';
-const LIVEKIT_API_KEY = process.env. 'APITPYikfLT2XJX';
-const LIVEKIT_API_SECRET = process.envL. 'yUhYSz9TWBL69SSP8H0kOK6y8XWRGFDeBBk93WYCzJC';
-const PORT = process.env.8080;
+const LIVEKIT_URL = process.env.LIVEKIT_URL;
+const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
+
+if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
+  throw new Error('Missing LIVEKIT_* environment variables');
+}
+
+const PORT = process.env.port;
 
 // ---------- STATIC ----------
 app.use(express.static(path.join(__dirname, 'public')));
@@ -201,10 +206,9 @@ app.get('/api/watch/:id', authMiddleware(), (req, res) => {
 app.get('/', (_, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
-
 app.listen(PORT, () => {
-  console.log(`Server running on https://lovely-adele-sallives-d61df5d2.koyeb.app/:${8000}`);
-  if (LIVEKIT_URL.includes('wss://multicam-national-day-htyhphzo.livekit.cloud')) {
+  console.log(`Server running on http://localhost:${PORT}`);
+  if (LIVEKIT_URL.includes('REPLACE_ME')) {
     console.log('⚠️  Please set LIVEKIT_URL in .env');
   }
 });
