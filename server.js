@@ -203,7 +203,7 @@ app.get('/', (_, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on https://lovely-adele-sallives-d61df5d2.koyeb.app/:${port:8000}`);
+  console.log(`Server running on https://lovely-adele-sallives-d61df5d2.koyeb.app/:${8000}`);
   if (LIVEKIT_URL.includes('wss://multicam-national-day-htyhphzo.livekit.cloud')) {
     console.log('⚠️  Please set LIVEKIT_URL in .env');
   }
