@@ -19,8 +19,8 @@ app.use(cors());
 
 // ---------- ENV ----------
 const LIVEKIT_URL = process.env.LIVEKIT_URL || 'wss://multicam-national-day-htyhphzo.livekit.cloud';
-const LIVEKIT_API_KEY = process.env.APITPYikfLT2XJX || '';
-const LIVEKIT_API_SECRET = process.env.yUhYSz9TWBL69SSP8H0kOK6y8XWRGFDeBBk93WYCzJC || '';
+const LIVEKIT_API_KEY = process.env. LIVEKIT_API_KEY || 'APITPYikfLT2XJX';
+const LIVEKIT_API_SECRET = process.envL. IVEKIT_API_SECRET. || 'yUhYSz9TWBL69SSP8H0kOK6y8XWRGFDeBBk93WYCzJC';
 const PORT = process.env.PORT || 8080;
 
 // ---------- STATIC ----------
