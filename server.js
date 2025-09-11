@@ -20,7 +20,7 @@ app.use(cors());
 const LIVEKIT_URL = process.env.LIVEKIT_URL || 'wss://multicam-national-day-htyhphzo.livekit.cloud';
 const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || '';
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || '';
-
+const PORT = process.env.PORT || 8080;
 // ---------- STATIC ----------
 app.use(express.static(path.join(__dirname, 'public')));
 
