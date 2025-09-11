@@ -1,4 +1,6 @@
+// City page controller (robust init + inline fallbacks)
 const { Room, createLocalTracks, LocalVideoTrack } = window.livekit;
+
 let lkRoom = null;
 let localTracks = [];
 let permissionsGranted = false;
@@ -15,27 +17,29 @@ function ensureAuthCity() {
   return s;
 }
 
+// ربط آمن للأزرار (مع touch/pointer)
 function bindTap(el, handler) {
-  if (!el) return;
-  const safe = (e) => { e.preventDefault?.(); e.stopPropagation?.(); handler(e); };
+  if (!el || typeof handler !== 'function') return;
+  const safe = (e) => { try { e.preventDefault?.(); e.stopPropagation?.(); } catch(_){} handler(e); };
   el.addEventListener('click', safe);
   el.addEventListener('touchend', safe, { passive: false });
   el.addEventListener('pointerup', safe);
+  // لتجنب التكرار لو أُعيدت التهيئة
+  el._boundHandler && el.removeEventListener('click', el._boundHandler);
+  el._boundHandler = safe;
 }
 
 async function ensurePermissions() {
-  // تحقق من HTTPS وواجهات media
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
     setStatus('هذه الصفحة يجب فتحها عبر HTTPS للسماح بالكاميرا/المايك.');
-    alert('يفضّل فتح الرابط عبر HTTPS.');
+    alert('افتح الرابط عبر HTTPS.');
     throw new Error('Not HTTPS');
   }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
     setStatus('المتصفح لا يدعم getUserMedia أو مُعطل.');
-    alert('المتصفح لا يدعم أو منع الوصول للكاميرا/المايك.');
+    alert('المتصفح لا يدعم/حجب الكاميرا/المايك.');
     throw new Error('No mediaDevices');
   }
-
   try {
     setStatus('طلب إذن الكاميرا/المايك…');
     const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -44,8 +48,8 @@ async function ensurePermissions() {
     setStatus('تم منح الإذن. اختر الأجهزة ثم اضغط اتصال.');
   } catch (e) {
     console.error('Permission error:', e);
-    setStatus('تم رفض الإذن أو حدث خطأ. فعّل الكاميرا/المايك من إعدادات المتصفح للتطبيق.');
-    alert('لا بد من منح إذن الكاميرا/المايك من إعدادات المتصفح للموقع.');
+    setStatus('تم رفض الإذن أو حدث خطأ. فعّل الكاميرا/المايك من إعدادات المتصفح.');
+    alert('يجب منح إذن الكاميرا/المايك من إعدادات المتصفح لهذا الموقع.');
     permissionsGranted = false;
     throw e;
   }
@@ -78,7 +82,6 @@ async function listDevices() {
     });
 
     if (cams.length === 0) {
-      // fallback لآيفون: facingMode
       const o1 = document.createElement('option');
       o1.value = 'front';
       o1.textContent = 'الكاميرا الأمامية';
@@ -98,7 +101,6 @@ async function listDevices() {
 
 async function join() {
   const s = ensureAuthCity();
-
   try {
     if (!permissionsGranted) {
       await ensurePermissions();
@@ -165,22 +167,36 @@ async function leave() {
   }
 }
 
-(function init() {
-  ensureAuthCity();
-  logoutBtnHandler(document.getElementById('logoutBtn'));
+// --- Boot / bindings ---
+function boot() {
+  try {
+    ensureAuthCity();
+    logoutBtnHandler(document.getElementById('logoutBtn'));
 
-  // ربط أزرار اللمس/النقر بأمان
-  bindTap(document.getElementById('permBtn'), async () => {
-    try {
-      await ensurePermissions();
-      await listDevices();
-      alert('تم منح الإذن. اختر الكاميرا/المايك ثم اضغط اتصال.');
-    } catch (_) {}
-  });
+    bindTap(document.getElementById('permBtn'), async () => {
+      try {
+        await ensurePermissions();
+        await listDevices();
+        alert('تم منح الإذن. اختر الكاميرا/المايك ثم اضغط اتصال.');
+      } catch (_) {}
+    });
+    bindTap(document.getElementById('joinBtn'), join);
+    bindTap(document.getElementById('leaveBtn'), leave);
 
-  bindTap(document.getElementById('joinBtn'), join);
-  bindTap(document.getElementById('leaveBtn'), leave);
+    // Inline fallbacks
+    window.__permClick = async () => { try { await ensurePermissions(); await listDevices(); } catch(_){} };
+    window.__joinClick = () => { join(); };
+    window.__leaveClick = () => { leave(); };
 
-  // محاولة فورية لملء الأجهزة (قد تكون بلا أسماء قبل الإذن)
-  listDevices();
-})();
+    // حاول تعبئة الأجهزة مباشرة (قد تكون بلا أسماء قبل الإذن)
+    listDevices();
+    setStatus('جاهز.');
+  } catch (e) {
+    console.error('boot error:', e);
+    setStatus('خطأ تهيئة الصفحة. تحقق من وحدة التحكم (Console).');
+  }
+}
+
+// شغّل على DOMContentLoaded وأيضًا صدِّره كـ fallback عالمي
+document.addEventListener('DOMContentLoaded', boot);
+window.__cityBoot = boot;
