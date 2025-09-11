@@ -40,7 +40,8 @@ function waitForLiveKit(timeoutMs = 8000) {
 async function requestPermissionsOnce() {
   if (permissionsGranted) return true;
 
-  if (location.protocol !== 'https:' && location.hostname !== 'localhost')) {
+  // ✅ تم تصحيح القوس هنا
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
     setStatus('❌ يجب فتح الصفحة عبر HTTPS.');
     return false;
   }
@@ -100,11 +101,9 @@ async function listDevices() {
 async function join() {
   const s = ensureAuthCity();
   try {
-    // انتظر المكتبة أكيد
     const livekit = await waitForLiveKit();
     const { Room, createLocalTracks, LocalVideoTrack } = livekit;
 
-    // تأكد من الإذن ثم حدّث القوائم
     const ok = await requestPermissionsOnce();
     if (!ok) return;
     await listDevices();
@@ -125,7 +124,7 @@ async function join() {
     const tk = await API.token(roomName, identity, true, true);
 
     setStatus('🔌 الاتصال بـ LiveKit…');
-    lkRoom = new Room({});
+    lkRoom = new (livekit.Room)({});
     await lkRoom.connect(tk.url, tk.token, { tracks: localTracks });
 
     const v = document.getElementById('preview');
@@ -168,7 +167,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('joinBtn')?.addEventListener('click', join);
   document.getElementById('leaveBtn')?.addEventListener('click', leave);
 
-  // طلب الإذن تلقائيًا؛ إن رُفض يظهر زر "منح الإذن"
   const ok = await requestPermissionsOnce();
   if (ok) await listDevices();
 });
