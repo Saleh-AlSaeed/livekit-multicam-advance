@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>غرفة المدينة</title>
     <link rel="stylesheet" href="/styles.css" />
-    <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
   </head>
   <body>
     <header class="topbar">
@@ -33,7 +32,7 @@
         </div>
 
         <div class="toolbar">
-          <!-- يبقى كخيار احتياطي فقط إن فشل الطلب التلقائي -->
+          <!-- يظهر إذا فشل الطلب التلقائي للإذن -->
           <button id="permBtn" class="btn secondary" type="button" style="display:none">منح إذن الكاميرا/المايك</button>
           <button id="joinBtn" class="btn" type="button">اتصال</button>
           <button id="leaveBtn" class="btn secondary" type="button" disabled>مغادرة</button>
@@ -49,7 +48,21 @@
       </div>
     </div>
 
-    <script src="/common.js?v=4"></script>
-    <script src="/city.js?v=4"></script>
+    <!-- تحميل LiveKit (مع بديل CDN) قبل سكربتاتك -->
+    <script>
+      (function loadLiveKit(){
+        function add(src, next){
+          var s=document.createElement('script'); s.src=src; s.async=false;
+          s.onload=function(){}; s.onerror=next; document.head.appendChild(s);
+        }
+        if (window.livekit) return;
+        add('https://cdn.jsdelivr.net/npm/livekit-client@^2/dist/livekit-client.umd.min.js',
+          function(){ add('https://unpkg.com/livekit-client/dist/livekit-client.umd.js'); });
+      })();
+    </script>
+
+    <!-- سكربتات المشروع بعد المكتبة -->
+    <script defer src="/common.js?v=6"></script>
+    <script defer src="/city.js?v=6"></script>
   </body>
 </html>
