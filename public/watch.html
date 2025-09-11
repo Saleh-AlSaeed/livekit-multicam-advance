@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="ar" class="rtl">
   <head>
@@ -6,20 +5,37 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>المشاهدة</title>
     <link rel="stylesheet" href="/styles.css" />
-    <script src="https://unpkg.com/livekit-client/dist/livekit-client.umd.js"></script>
   </head>
   <body>
     <header class="topbar">
       <div>📺 غرفة المشاهدة</div>
       <div class="toolbar">
-        <button id="fsBtn" class="btn fullscreen-btn">ملء الشاشة</button>
-        <button id="logoutBtn" class="btn danger">خروج</button>
+        <button id="fsBtn" class="btn fullscreen-btn" type="button">ملء الشاشة</button>
+        <button id="logoutBtn" class="btn danger" type="button">خروج</button>
       </div>
     </header>
+
     <div class="video-grid cols-1">
-      <div class="video-tile"><video id="player" autoplay playsinline controls></video><div class="label">البث</div></div>
+      <div class="video-tile">
+        <video id="player" autoplay playsinline controls></video>
+        <div class="label">البث</div>
+      </div>
     </div>
-    <script src="/common.js"></script>
-    <script src="/watch.js"></script>
+
+    <!-- تحميل LiveKit (مع بديل CDN) قبل سكربتاتك -->
+    <script>
+      (function loadLiveKit(){
+        function add(src, next){
+          var s=document.createElement('script'); s.src=src; s.async=false;
+          s.onload=function(){}; s.onerror=next; document.head.appendChild(s);
+        }
+        if (window.livekit) return;
+        add('https://cdn.jsdelivr.net/npm/livekit-client@^2/dist/livekit-client.umd.min.js',
+          function(){ add('https://unpkg.com/livekit-client/dist/livekit-client.umd.js'); });
+      })();
+    </script>
+
+    <script defer src="/common.js?v=6"></script>
+    <script defer src="/watch.js?v=6"></script>
   </body>
 </html>
