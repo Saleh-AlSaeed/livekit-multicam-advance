@@ -1,5 +1,4 @@
-const { Room, createLocalTracks, LocalVideoTrack } = window.livekit;
-
+// مدينة: ربط كاميرا/مايك + اتصال LiveKit مع انتظار آمن لتحميل المكتبة
 let lkRoom = null;
 let localTracks = [];
 let permissionsGranted = false;
@@ -9,21 +8,43 @@ function setStatus(msg) {
   if (el) el.textContent = msg;
   console.log('[CITY]', msg);
 }
-
 function ensureAuthCity() {
   const s = requireAuth();
   if (!s || s.role !== 'city') location.href = '/';
   return s;
 }
+function buildVideoConstraints(choice) {
+  if (choice === 'front') return { facingMode: 'user' };
+  if (choice === 'environment') return { facingMode: { exact: 'environment' } };
+  if (choice) return { deviceId: choice };
+  return true;
+}
+
+// انتظر حتى تُحمّل مكتبة livekit في window
+function waitForLiveKit(timeoutMs = 8000) {
+  return new Promise((resolve, reject) => {
+    if (window.livekit) return resolve(window.livekit);
+    const t0 = Date.now();
+    const id = setInterval(() => {
+      if (window.livekit) {
+        clearInterval(id);
+        resolve(window.livekit);
+      } else if (Date.now() - t0 > timeoutMs) {
+        clearInterval(id);
+        reject(new Error('LiveKit client did not load'));
+      }
+    }, 50);
+  });
+}
 
 async function requestPermissionsOnce() {
   if (permissionsGranted) return true;
 
-  if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+  if (location.protocol !== 'https:' && location.hostname !== 'localhost')) {
     setStatus('❌ يجب فتح الصفحة عبر HTTPS.');
     return false;
   }
-  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+  if (!navigator.mediaDevices?.getUserMedia) {
     setStatus('❌ المتصفح لا يدعم الكاميرا/المايك.');
     return false;
   }
@@ -36,7 +57,7 @@ async function requestPermissionsOnce() {
     return true;
   } catch (e) {
     console.error('Permission error:', e);
-    setStatus('❌ رُفض الإذن. فعّل من إعدادات المتصفح للموقع، أو اضغط زر "منح الإذن".');
+    setStatus('❌ رُفض الإذن. فعّل من إعدادات المتصفح أو اضغط "منح الإذن".');
     document.getElementById('permBtn')?.removeAttribute('style');
     return false;
   }
@@ -66,7 +87,6 @@ async function listDevices() {
     });
 
     if (cams.length === 0) {
-      // iOS fallback
       const o1 = document.createElement('option'); o1.value='front'; o1.textContent='الكاميرا الأمامية'; camSel.appendChild(o1);
       const o2 = document.createElement('option'); o2.value='environment'; o2.textContent='الكاميرا الخلفية'; camSel.appendChild(o2);
     }
@@ -77,16 +97,14 @@ async function listDevices() {
   }
 }
 
-function buildVideoConstraints(choice) {
-  if (choice === 'front') return { facingMode: 'user' };
-  if (choice === 'environment') return { facingMode: { exact: 'environment' } };
-  if (choice) return { deviceId: choice };
-  return true;
-}
-
 async function join() {
   const s = ensureAuthCity();
   try {
+    // انتظر المكتبة أكيد
+    const livekit = await waitForLiveKit();
+    const { Room, createLocalTracks, LocalVideoTrack } = livekit;
+
+    // تأكد من الإذن ثم حدّث القوائم
     const ok = await requestPermissionsOnce();
     if (!ok) return;
     await listDevices();
@@ -139,7 +157,6 @@ async function leave() {
   }
 }
 
-// تشغيل تلقائي: اطلب الإذن فور الدخول (سيظهر زر منح الإذن إذا رُفض)
 document.addEventListener('DOMContentLoaded', async () => {
   ensureAuthCity();
   logoutBtnHandler(document.getElementById('logoutBtn'));
@@ -151,6 +168,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('joinBtn')?.addEventListener('click', join);
   document.getElementById('leaveBtn')?.addEventListener('click', leave);
 
+  // طلب الإذن تلقائيًا؛ إن رُفض يظهر زر "منح الإذن"
   const ok = await requestPermissionsOnce();
   if (ok) await listDevices();
 });
