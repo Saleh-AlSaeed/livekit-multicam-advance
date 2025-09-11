@@ -1,4 +1,3 @@
-
 import 'dotenv/config';
 import express from 'express';
 import morgan from 'morgan';
@@ -18,15 +17,11 @@ app.use(morgan('dev'));
 app.use(cors());
 
 // ---------- ENV ----------
-const LIVEKIT_URL = process.env.LIVEKIT_URL;
-const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY;
-const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET;
-
-if (!LIVEKIT_URL || !LIVEKIT_API_KEY || !LIVEKIT_API_SECRET) {
-  throw new Error('Missing LIVEKIT_* environment variables');
-}
-
-const PORT = process.env.port;
+const LIVEKIT_URL = process.env.LIVEKIT_URL || 'wss://REPLACE_ME.livekit.cloud';
+const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY || '';
+const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET || '';
+// 👇 المهم: Koyeb يمرر PORT تلقائياً، ولو غير موجود يستعمل 8080
+const PORT = process.env.PORT || 8080;
 
 // ---------- STATIC ----------
 app.use(express.static(path.join(__dirname, 'public')));
@@ -166,7 +161,7 @@ app.post('/api/create-watch', authMiddleware('admin'), (req, res) => {
   res.json(record);
 });
 
-// Update selection for a watch session (keep same room)
+// Update selection for a watch session
 app.put('/api/watch/:id', authMiddleware('admin'), (req, res) => {
   const { id } = req.params;
   const { selection, active } = req.body || {};
@@ -206,12 +201,11 @@ app.get('/api/watch/:id', authMiddleware(), (req, res) => {
 app.get('/', (_, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+// ---------- START SERVER ----------
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`🚀 Server running on http://0.0.0.0:${PORT}`);
   if (LIVEKIT_URL.includes('REPLACE_ME')) {
-    console.log('⚠️  Please set LIVEKIT_URL in .env');
+    console.log('⚠️  Please set LIVEKIT_URL in environment variables');
   }
 });
-
-
-
