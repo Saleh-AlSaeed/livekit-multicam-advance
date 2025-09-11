@@ -19,7 +19,7 @@
       <div class="card">
         <h3>تجهيز الاتصال</h3>
 
-        <div id="status" class="small" style="margin:6px 0 12px;">جاهز</div>
+        <div id="status" class="small" style="margin:6px 0 12px;">جاري طلب إذن الكاميرا/المايك…</div>
 
         <div class="grid cols-2">
           <div>
@@ -33,10 +33,10 @@
         </div>
 
         <div class="toolbar">
-          <!-- لاحظ onClick كنسخة احتياط -->
-          <button id="permBtn" class="btn secondary" type="button" onclick="window.__permClick && window.__permClick()">منح إذن الكاميرا/المايك</button>
-          <button id="joinBtn" class="btn" type="button" onclick="window.__joinClick && window.__joinClick()">اتصال</button>
-          <button id="leaveBtn" class="btn secondary" type="button" disabled onclick="window.__leaveClick && window.__leaveClick()">مغادرة</button>
+          <!-- يبقى كخيار احتياطي فقط إن فشل الطلب التلقائي -->
+          <button id="permBtn" class="btn secondary" type="button" style="display:none">منح إذن الكاميرا/المايك</button>
+          <button id="joinBtn" class="btn" type="button">اتصال</button>
+          <button id="leaveBtn" class="btn secondary" type="button" disabled>مغادرة</button>
         </div>
 
         <hr/>
@@ -49,15 +49,7 @@
       </div>
     </div>
 
-    <!-- اكسر الكاش بإصدار v=3 -->
-    <script src="/common.js?v=3"></script>
-    <script src="/city.js?v=3"></script>
-
-    <!-- fallback أخير: شغّل init يدويًا إن لم تُستدع -->
-    <script>
-      document.addEventListener('DOMContentLoaded', () => {
-        if (window.__cityBoot) { try { window.__cityBoot(); } catch(e) { console.error(e); } }
-      });
-    </script>
+    <script src="/common.js?v=4"></script>
+    <script src="/city.js?v=4"></script>
   </body>
 </html>
