@@ -16,116 +16,97 @@ function ensureAuthCity() {
   return s;
 }
 
-// طلب إذن (تلقائي + يمكن استدعاؤه يدويًا)
-async function ensurePermissions() {
+async function requestPermissionsOnce() {
+  if (permissionsGranted) return true;
+
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-    setStatus('يجب فتح الصفحة عبر HTTPS للسماح بالكاميرا/المايك.');
-    throw new Error('Not HTTPS');
+    setStatus('❌ يجب فتح الصفحة عبر HTTPS.');
+    return false;
   }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    setStatus('المتصفح لا يدعم الوصول للكاميرا/المايك.');
-    throw new Error('No mediaDevices');
+    setStatus('❌ المتصفح لا يدعم الكاميرا/المايك.');
+    return false;
   }
   try {
-    setStatus('طلب إذن الكاميرا/المايك…');
-    const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    stream.getTracks().forEach(t => t.stop());
+    setStatus('🔔 طلب إذن الكاميرا/المايك…');
+    const s = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+    s.getTracks().forEach(t => t.stop());
     permissionsGranted = true;
-    setStatus('تم منح الإذن. اختر الأجهزة ثم اضغط اتصال.');
-    // إظهار القوائم بعد الإذن
-    await listDevices();
+    setStatus('✅ تم منح الإذن. اختر الأجهزة أو اضغط "اتصال".');
+    return true;
   } catch (e) {
     console.error('Permission error:', e);
-    permissionsGranted = false;
-    setStatus('تم رفض الإذن أو حدث خطأ. اضغط زر "منح إذن الكاميرا/المايك" أو فعّل الإذن من إعدادات المتصفح للموقع.');
-    // أظهر زر منح الإذن الاحتياطي
-    const permBtn = document.getElementById('permBtn');
-    if (permBtn) permBtn.style.display = 'inline-block';
-    throw e;
+    setStatus('❌ رُفض الإذن. فعّل من إعدادات المتصفح للموقع، أو اضغط زر "منح الإذن".');
+    document.getElementById('permBtn')?.removeAttribute('style');
+    return false;
   }
 }
 
 async function listDevices() {
   try {
-    const devices = await navigator.mediaDevices?.enumerateDevices?.() ?? [];
+    const devs = await navigator.mediaDevices.enumerateDevices();
     const camSel = document.getElementById('camSel');
     const micSel = document.getElementById('micSel');
-    if (!camSel || !micSel) return;
+    camSel.innerHTML = ''; micSel.innerHTML = '';
 
-    camSel.innerHTML = '';
-    micSel.innerHTML = '';
+    const cams = devs.filter(d => d.kind === 'videoinput');
+    const mics = devs.filter(d => d.kind === 'audioinput');
 
-    const cams = devices.filter(d => d.kind === 'videoinput');
-    const mics = devices.filter(d => d.kind === 'audioinput');
-
-    cams.forEach((d, idx) => {
+    cams.forEach((d, i) => {
       const o = document.createElement('option');
       o.value = d.deviceId || '';
-      o.textContent = d.label?.trim() || (idx === 0 ? 'الكاميرا الأمامية (افتراضي)' : `كاميرا ${idx+1}`);
+      o.textContent = d.label?.trim() || (i===0 ? 'الكاميرا الأمامية (افتراضي)' : `كاميرا ${i+1}`);
       camSel.appendChild(o);
     });
-
-    mics.forEach((d, idx) => {
+    mics.forEach((d, i) => {
       const o = document.createElement('option');
       o.value = d.deviceId || '';
-      o.textContent = d.label?.trim() || (idx === 0 ? 'مايك افتراضي' : `مايك ${idx+1}`);
+      o.textContent = d.label?.trim() || (i===0 ? 'مايك افتراضي' : `مايك ${i+1}`);
       micSel.appendChild(o);
     });
 
-    // fallback لآيفون لو ما فيه أي جهاز مرئي
     if (cams.length === 0) {
-      const o1 = document.createElement('option');
-      o1.value = 'front';
-      o1.textContent = 'الكاميرا الأمامية';
-      camSel.appendChild(o1);
-      const o2 = document.createElement('option');
-      o2.value = 'environment';
-      o2.textContent = 'الكاميرا الخلفية';
-      camSel.appendChild(o2);
+      // iOS fallback
+      const o1 = document.createElement('option'); o1.value='front'; o1.textContent='الكاميرا الأمامية'; camSel.appendChild(o1);
+      const o2 = document.createElement('option'); o2.value='environment'; o2.textContent='الكاميرا الخلفية'; camSel.appendChild(o2);
     }
-
-    setStatus('الأجهزة جاهزة للاختيار.');
+    setStatus('📋 الأجهزة جاهزة.');
   } catch (e) {
     console.error('enumerateDevices failed:', e);
-    setStatus('تعذر قراءة الأجهزة. تأكد من الإذن وفتح الصفحة عبر HTTPS.');
+    setStatus('❌ تعذر قراءة الأجهزة.');
   }
+}
+
+function buildVideoConstraints(choice) {
+  if (choice === 'front') return { facingMode: 'user' };
+  if (choice === 'environment') return { facingMode: { exact: 'environment' } };
+  if (choice) return { deviceId: choice };
+  return true;
 }
 
 async function join() {
   const s = ensureAuthCity();
   try {
-    // لو ما عندنا إذن بعد (أو فشل تلقائياً) حاول مرة أخرى
-    if (!permissionsGranted) {
-      await ensurePermissions();
-    }
+    const ok = await requestPermissionsOnce();
+    if (!ok) return;
+    await listDevices();
 
     const roomName = qs('room');
     const identity = `${s.username}`;
-    const camSel = document.getElementById('camSel');
-    const micSel = document.getElementById('micSel');
 
-    const camChoice = camSel?.value;
-    const micChoice = micSel?.value;
+    const camChoice = document.getElementById('camSel').value;
+    const micChoice = document.getElementById('micSel').value;
 
-    let videoConstraints;
-    if (camChoice === 'front') {
-      videoConstraints = { facingMode: 'user' };
-    } else if (camChoice === 'environment') {
-      videoConstraints = { facingMode: { exact: 'environment' } };
-    } else if (camChoice) {
-      videoConstraints = { deviceId: camChoice };
-    } else {
-      videoConstraints = true;
-    }
+    const videoConstraints = buildVideoConstraints(camChoice);
     const audioConstraints = micChoice ? { deviceId: micChoice } : true;
 
-    setStatus('إنشاء المسارات المحلية…');
+    setStatus('🎥 إنشاء المسارات المحلية…');
     localTracks = await createLocalTracks({ audio: audioConstraints, video: videoConstraints });
 
-    setStatus('الحصول على توكن LiveKit…');
+    setStatus('🔐 الحصول على توكن…');
     const tk = await API.token(roomName, identity, true, true);
 
-    setStatus('الاتصال بالغرفة…');
+    setStatus('🔌 الاتصال بـ LiveKit…');
     lkRoom = new Room({});
     await lkRoom.connect(tk.url, tk.token, { tracks: localTracks });
 
@@ -135,11 +116,11 @@ async function join() {
 
     document.getElementById('joinBtn').disabled = true;
     document.getElementById('leaveBtn').disabled = false;
-    setStatus('متصل. يتم نشر الفيديو/الصوت.');
+    setStatus('✅ متصل وينشر الفيديو/الصوت.');
   } catch (e) {
     console.error('join failed:', e);
-    setStatus('فشل الاتصال. راجع الأذونات أو الإعدادات.');
-    alert('فشل الاتصال: ' + (e?.message || 'Unknown error'));
+    setStatus('❌ فشل الاتصال: ' + (e?.name || e?.message || ''));
+    alert('فشل الاتصال: ' + (e?.message || e));
   }
 }
 
@@ -148,36 +129,28 @@ async function leave() {
     if (lkRoom) { lkRoom.disconnect(); lkRoom = null; }
     localTracks.forEach(t => t.stop());
     localTracks = [];
-    const v = document.getElementById('preview');
-    if (v) { try { v.srcObject = null; } catch (_) {} }
+    const v = document.getElementById('preview'); if (v) v.srcObject = null;
     document.getElementById('joinBtn').disabled = false;
     document.getElementById('leaveBtn').disabled = true;
-    setStatus('تمت المغادرة.');
+    setStatus('↩️ تمت المغادرة.');
   } catch (e) {
     console.error('leave failed:', e);
-    setStatus('تعذر المغادرة، أعد تحميل الصفحة.');
+    setStatus('❌ تعذر المغادرة.');
   }
 }
 
-// تشغيل تلقائي عند الدخول للصفحة
+// تشغيل تلقائي: اطلب الإذن فور الدخول (سيظهر زر منح الإذن إذا رُفض)
 document.addEventListener('DOMContentLoaded', async () => {
   ensureAuthCity();
   logoutBtnHandler(document.getElementById('logoutBtn'));
 
-  // اربط الأزرار
   document.getElementById('permBtn')?.addEventListener('click', async () => {
-    try { await ensurePermissions(); } catch (_) {}
+    const ok = await requestPermissionsOnce();
+    if (ok) await listDevices();
   });
   document.getElementById('joinBtn')?.addEventListener('click', join);
   document.getElementById('leaveBtn')?.addEventListener('click', leave);
 
-  // 1) حاول طلب الإذن تلقائيًا
-  try {
-    await ensurePermissions();   // إن نجح، سيتم أيضًا استدعاء listDevices() من داخله
-  } catch {
-    // 2) لو رُفض تلقائيًا، أظهر الزر الاحتياطي واملأ القوائم قدر الإمكان
-    const permBtn = document.getElementById('permBtn');
-    if (permBtn) permBtn.style.display = 'inline-block';
-    await listDevices();
-  }
+  const ok = await requestPermissionsOnce();
+  if (ok) await listDevices();
 });
