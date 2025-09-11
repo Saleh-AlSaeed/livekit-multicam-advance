@@ -1,4 +1,3 @@
-// City page controller (robust init + inline fallbacks)
 const { Room, createLocalTracks, LocalVideoTrack } = window.livekit;
 
 let lkRoom = null;
@@ -17,27 +16,14 @@ function ensureAuthCity() {
   return s;
 }
 
-// ربط آمن للأزرار (مع touch/pointer)
-function bindTap(el, handler) {
-  if (!el || typeof handler !== 'function') return;
-  const safe = (e) => { try { e.preventDefault?.(); e.stopPropagation?.(); } catch(_){} handler(e); };
-  el.addEventListener('click', safe);
-  el.addEventListener('touchend', safe, { passive: false });
-  el.addEventListener('pointerup', safe);
-  // لتجنب التكرار لو أُعيدت التهيئة
-  el._boundHandler && el.removeEventListener('click', el._boundHandler);
-  el._boundHandler = safe;
-}
-
+// طلب إذن (تلقائي + يمكن استدعاؤه يدويًا)
 async function ensurePermissions() {
   if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
-    setStatus('هذه الصفحة يجب فتحها عبر HTTPS للسماح بالكاميرا/المايك.');
-    alert('افتح الرابط عبر HTTPS.');
+    setStatus('يجب فتح الصفحة عبر HTTPS للسماح بالكاميرا/المايك.');
     throw new Error('Not HTTPS');
   }
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-    setStatus('المتصفح لا يدعم getUserMedia أو مُعطل.');
-    alert('المتصفح لا يدعم/حجب الكاميرا/المايك.');
+    setStatus('المتصفح لا يدعم الوصول للكاميرا/المايك.');
     throw new Error('No mediaDevices');
   }
   try {
@@ -46,11 +32,15 @@ async function ensurePermissions() {
     stream.getTracks().forEach(t => t.stop());
     permissionsGranted = true;
     setStatus('تم منح الإذن. اختر الأجهزة ثم اضغط اتصال.');
+    // إظهار القوائم بعد الإذن
+    await listDevices();
   } catch (e) {
     console.error('Permission error:', e);
-    setStatus('تم رفض الإذن أو حدث خطأ. فعّل الكاميرا/المايك من إعدادات المتصفح.');
-    alert('يجب منح إذن الكاميرا/المايك من إعدادات المتصفح لهذا الموقع.');
     permissionsGranted = false;
+    setStatus('تم رفض الإذن أو حدث خطأ. اضغط زر "منح إذن الكاميرا/المايك" أو فعّل الإذن من إعدادات المتصفح للموقع.');
+    // أظهر زر منح الإذن الاحتياطي
+    const permBtn = document.getElementById('permBtn');
+    if (permBtn) permBtn.style.display = 'inline-block';
     throw e;
   }
 }
@@ -74,6 +64,7 @@ async function listDevices() {
       o.textContent = d.label?.trim() || (idx === 0 ? 'الكاميرا الأمامية (افتراضي)' : `كاميرا ${idx+1}`);
       camSel.appendChild(o);
     });
+
     mics.forEach((d, idx) => {
       const o = document.createElement('option');
       o.value = d.deviceId || '';
@@ -81,6 +72,7 @@ async function listDevices() {
       micSel.appendChild(o);
     });
 
+    // fallback لآيفون لو ما فيه أي جهاز مرئي
     if (cams.length === 0) {
       const o1 = document.createElement('option');
       o1.value = 'front';
@@ -102,9 +94,9 @@ async function listDevices() {
 async function join() {
   const s = ensureAuthCity();
   try {
+    // لو ما عندنا إذن بعد (أو فشل تلقائياً) حاول مرة أخرى
     if (!permissionsGranted) {
       await ensurePermissions();
-      await listDevices();
     }
 
     const roomName = qs('room');
@@ -167,36 +159,25 @@ async function leave() {
   }
 }
 
-// --- Boot / bindings ---
-function boot() {
+// تشغيل تلقائي عند الدخول للصفحة
+document.addEventListener('DOMContentLoaded', async () => {
+  ensureAuthCity();
+  logoutBtnHandler(document.getElementById('logoutBtn'));
+
+  // اربط الأزرار
+  document.getElementById('permBtn')?.addEventListener('click', async () => {
+    try { await ensurePermissions(); } catch (_) {}
+  });
+  document.getElementById('joinBtn')?.addEventListener('click', join);
+  document.getElementById('leaveBtn')?.addEventListener('click', leave);
+
+  // 1) حاول طلب الإذن تلقائيًا
   try {
-    ensureAuthCity();
-    logoutBtnHandler(document.getElementById('logoutBtn'));
-
-    bindTap(document.getElementById('permBtn'), async () => {
-      try {
-        await ensurePermissions();
-        await listDevices();
-        alert('تم منح الإذن. اختر الكاميرا/المايك ثم اضغط اتصال.');
-      } catch (_) {}
-    });
-    bindTap(document.getElementById('joinBtn'), join);
-    bindTap(document.getElementById('leaveBtn'), leave);
-
-    // Inline fallbacks
-    window.__permClick = async () => { try { await ensurePermissions(); await listDevices(); } catch(_){} };
-    window.__joinClick = () => { join(); };
-    window.__leaveClick = () => { leave(); };
-
-    // حاول تعبئة الأجهزة مباشرة (قد تكون بلا أسماء قبل الإذن)
-    listDevices();
-    setStatus('جاهز.');
-  } catch (e) {
-    console.error('boot error:', e);
-    setStatus('خطأ تهيئة الصفحة. تحقق من وحدة التحكم (Console).');
+    await ensurePermissions();   // إن نجح، سيتم أيضًا استدعاء listDevices() من داخله
+  } catch {
+    // 2) لو رُفض تلقائيًا، أظهر الزر الاحتياطي واملأ القوائم قدر الإمكان
+    const permBtn = document.getElementById('permBtn');
+    if (permBtn) permBtn.style.display = 'inline-block';
+    await listDevices();
   }
-}
-
-// شغّل على DOMContentLoaded وأيضًا صدِّره كـ fallback عالمي
-document.addEventListener('DOMContentLoaded', boot);
-window.__cityBoot = boot;
+});
