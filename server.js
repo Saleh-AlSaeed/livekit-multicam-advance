@@ -175,6 +175,6 @@ app.get('/', (_, res) => {
 app.get('/health', (_, res) => res.status(200).send('ok'));
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
   if (LIVEKIT_URL.includes('REPLACE_ME')) console.log('⚠️ Please set LIVEKIT_URL / API KEY / SECRET');
 });
